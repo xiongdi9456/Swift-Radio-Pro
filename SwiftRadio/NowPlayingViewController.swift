@@ -55,6 +55,9 @@ class NowPlayingViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        // Setup handoff functionality - GH
+        setupUserActivity()
+        
         // Set AlbumArtwork Constraints
         optimizeForDeviceSize()
 
@@ -69,18 +72,19 @@ class NowPlayingViewController: UIViewController {
         // replace the MediaPlayer player with a more robust 
         // streaming library/SDK. Preferably one that supports interruptions, etc.
         // Most of the good streaming libaries are in Obj-C, however they
-        // will work nicely with this Swift code.
+        // will work nicely with this Swift code. There is a branch using RadioKit if 
+        // you need an example of how nicely this code integrates with libraries.
         setupPlayer()
         
         // Notification for when app becomes active
         NSNotificationCenter.defaultCenter().addObserver(self,
-            selector: "didBecomeActiveNotificationReceived",
+            selector: #selector(NowPlayingViewController.didBecomeActiveNotificationReceived),
             name:"UIApplicationDidBecomeActiveNotification",
             object: nil)
         
         // Notification for MediaPlayer metadata updated
         NSNotificationCenter.defaultCenter().addObserver(self,
-            selector: Selector("metadataUpdated:"),
+            selector: #selector(NowPlayingViewController.metadataUpdated(_:)),
             name:MPMoviePlayerTimedMetadataUpdatedNotification,
             object: nil);
         
@@ -101,6 +105,7 @@ class NowPlayingViewController: UIViewController {
         
         // Setup slider
         setupVolumeSlider()
+        
     }
     
     func didBecomeActiveNotificationReceived() {
@@ -383,7 +388,7 @@ class NowPlayingViewController: UIViewController {
         // Query API
         DataManager.getTrackDataWithSuccess(escapedURL!) { (data) in
             
-            if DEBUG_LOG {
+            if kDebugLog {
                 print("API SUCCESSFUL RETURN")
                 print("url: \(escapedURL!)")
             }
@@ -421,7 +426,7 @@ class NowPlayingViewController: UIViewController {
                 // Use iTunes API. Images are 100px by 100px
                 if let artURL = json["results"][0]["artworkUrl100"].string {
                     
-                    if DEBUG_LOG { print("iTunes artURL: \(artURL)") }
+                    if kDebugLog { print("iTunes artURL: \(artURL)") }
                     
                     self.track.artworkURL = artURL
                     self.track.artworkLoaded = true
@@ -448,6 +453,12 @@ class NowPlayingViewController: UIViewController {
     
     @IBAction func infoButtonPressed(sender: UIButton) {
         performSegueWithIdentifier("InfoDetail", sender: self)
+    }
+    
+    @IBAction func shareButtonPressed(sender: UIButton) {
+        let songToShare = "I'm listening to \(track.title) on \(currentStation.stationName) via Swift Radio Pro"
+        let activityViewController = UIActivityViewController(activityItems: [songToShare, track.artworkImage!], applicationActivities: nil)
+        presentViewController(activityViewController, animated: true, completion: nil)
     }
     
     //*****************************************************************
@@ -520,13 +531,14 @@ class NowPlayingViewController: UIViewController {
                 
                 if currentSongName != self.track.title {
                     
-                    if DEBUG_LOG {
+                    if kDebugLog {
                         print("METADATA artist: \(self.track.artist) | title: \(self.track.title)")
                     }
                     
                     // Update Labels
                     self.artistLabel.text = self.track.artist
                     self.songLabel.text = self.track.title
+                    self.updateUserActivityState(self.userActivity!)
                     
                     // songLabel animation
                     self.songLabel.animation = "zoomIn"
@@ -545,5 +557,27 @@ class NowPlayingViewController: UIViewController {
                 }
             }
         }
+    }
+    
+    //*****************************************************************
+    // MARK: - Handoff Functionality - GH
+    //*****************************************************************
+    
+    func setupUserActivity() {
+        let activity = NSUserActivity(activityType: NSUserActivityTypeBrowsingWeb ) //"com.graemeharrison.handoff.googlesearch" //NSUserActivityTypeBrowsingWeb
+        userActivity = activity
+        let url = "https://www.google.com/search?q=\(self.artistLabel.text!)+\(self.songLabel.text!)"
+        let urlStr = url.stringByAddingPercentEncodingWithAllowedCharacters(NSCharacterSet.URLQueryAllowedCharacterSet())
+        let searchURL : NSURL = NSURL(string: urlStr!)!
+        activity.webpageURL = searchURL
+        userActivity?.becomeCurrent()
+    }
+    
+    override func updateUserActivityState(activity: NSUserActivity) {
+        let url = "https://www.google.com/search?q=\(self.artistLabel.text!)+\(self.songLabel.text!)"
+        let urlStr = url.stringByAddingPercentEncodingWithAllowedCharacters(NSCharacterSet.URLQueryAllowedCharacterSet())
+        let searchURL : NSURL = NSURL(string: urlStr!)!
+        activity.webpageURL = searchURL
+        super.updateUserActivityState(activity)
     }
 }

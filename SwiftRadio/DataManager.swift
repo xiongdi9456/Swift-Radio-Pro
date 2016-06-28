@@ -37,16 +37,16 @@ class DataManager {
     
     class func getDataFromFileWithSuccess(success: (data: NSData) -> Void) {
         
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)) {
-            
-            let filePath = NSBundle.mainBundle().pathForResource("stations", ofType:"json")
+        if let filePath = NSBundle.mainBundle().pathForResource("stations", ofType:"json") {
             do {
-                let data = try NSData(contentsOfFile:filePath!,
+                let data = try NSData(contentsOfFile:filePath,
                     options: NSDataReadingOptions.DataReadingUncached)
                 success(data: data)
             } catch {
                 fatalError()
             }
+        } else {
+            print("The local JSON file could not be found")
         }
     }
     
@@ -61,7 +61,7 @@ class DataManager {
             if let urlData = data {
                 success(metaData: urlData)
             } else {
-                if DEBUG_LOG { print("API TIMEOUT OR ERROR") }
+                if kDebugLog { print("API TIMEOUT OR ERROR") }
             }
         }
     }
@@ -85,16 +85,16 @@ class DataManager {
             if let responseError = error {
                 completion(data: nil, error: responseError)
                 
-                if DEBUG_LOG { print("API ERROR: \(error)") }
+                if kDebugLog { print("API ERROR: \(error)") }
                 
                 // Stop activity Indicator
                 UIApplication.sharedApplication().networkActivityIndicatorVisible = false
                 
             } else if let httpResponse = response as? NSHTTPURLResponse {
                 if httpResponse.statusCode != 200 {
-                    let statusError = NSError(domain:"io.codemarket", code:httpResponse.statusCode, userInfo:[NSLocalizedDescriptionKey : "HTTP status code has unexpected value."])
+                    let statusError = NSError(domain:"com.matthewfecher", code:httpResponse.statusCode, userInfo:[NSLocalizedDescriptionKey : "HTTP status code has unexpected value."])
                     
-                    if DEBUG_LOG { print("API: HTTP status code has unexpected value") }
+                    if kDebugLog { print("API: HTTP status code has unexpected value") }
                     
                     completion(data: nil, error: statusError)
                     
